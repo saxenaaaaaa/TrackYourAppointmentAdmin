@@ -26,6 +26,7 @@ export default function UpdateDoctor({ navigation }: UpdateDoctorScreenProps): R
 
     const [selectedDoctor, setSelectedDoctor] = useState<DoctorDataDTO | null>(null);
     const [scheduleBoxHeight, setScheduleBoxHeight] = useState(0);
+    const [doctorName, setDoctorName] = useState("");
     const [doctorSchedule, setDoctorSchedule] = useState("");
     const [doctorPassword, setDoctorPassword] = useState("");
     const [doctorsList, setDoctorsList] = useState<DoctorDataDTO[]>([]);
@@ -50,14 +51,18 @@ export default function UpdateDoctor({ navigation }: UpdateDoctorScreenProps): R
         })();
     }, []); // todo: re-check what should be there in the dependency list
 
-    async function handleUpdateDoctor(selectedDoctor: DoctorDataDTO, doctorPassword: string, doctorSchedule: string): Promise<boolean> {
+    async function handleUpdateDoctor(selectedDoctor: DoctorDataDTO, doctorName: string, doctorPassword: string, 
+        doctorSchedule: string): Promise<boolean> {
         try {
             const doctorDataDto: DoctorDataDTO = {
                 _id: selectedDoctor._id,
-                name: selectedDoctor.name
+                name: "" // empty name passed to the server means no update to name
+            }
+            if(doctorName.trim() !== selectedDoctor.name) {
+                doctorDataDto.name = doctorName.trim();
             }
             if (doctorPassword) {
-                doctorDataDto.password = doctorPassword
+                doctorDataDto.password = doctorPassword.trim()
             }
             if (doctorSchedule !== selectedDoctor.schedule) {
                 doctorDataDto.schedule = doctorSchedule
@@ -93,7 +98,7 @@ export default function UpdateDoctor({ navigation }: UpdateDoctorScreenProps): R
                 }
             }
         } catch (error) {
-            console.error("There was an error creating doctor.", error);
+            console.error("There was an error udpating doctor.", error);
             return Promise.resolve(false);
         }
         return Promise.resolve(true)
@@ -102,6 +107,7 @@ export default function UpdateDoctor({ navigation }: UpdateDoctorScreenProps): R
     function reset() {
         setSelectedDoctor(null)
         dropdownRef.current?.reset()
+        setDoctorName("")
         setDoctorPassword("")
         setDoctorSchedule("")
     }
@@ -116,6 +122,7 @@ export default function UpdateDoctor({ navigation }: UpdateDoctorScreenProps): R
                 data={doctorsList}
                 onSelect={selectedDoctorListItem => {
                     setSelectedDoctor(selectedDoctorListItem);
+                    setDoctorName(selectedDoctorListItem.name)
                     setDoctorSchedule(selectedDoctorListItem.schedule);
                     setDoctorPassword("");
                 }}
@@ -123,6 +130,11 @@ export default function UpdateDoctor({ navigation }: UpdateDoctorScreenProps): R
                 buttonTextAfterSelection={selectedDoctorListItem => `Dr. ${selectedDoctorListItem.name}`}
                 rowTextForSelection={doctorListItem => `Dr. ${doctorListItem.name}`}
             />
+            <TextInput
+                label="Update name"
+                style={{ width: "auto", marginHorizontal: 32, marginBottom: 8, height: Math.max(35, scheduleBoxHeight) }}
+                value={doctorName}
+                onChangeText={text => setDoctorName(text)} />
             <TextInput
                 multiline
                 onContentSizeChange={(event) => setScheduleBoxHeight(event.nativeEvent.contentSize.height)}
@@ -137,14 +149,22 @@ export default function UpdateDoctor({ navigation }: UpdateDoctorScreenProps): R
                 onChangeText={text => setDoctorPassword(text)} />
             <Button title="Submit" style={{ width: "auto", marginHorizontal: 32, marginBottom: 8 }} onPress={async () => {
                 if (selectedDoctor) {
-                    if (doctorPassword || selectedDoctor.schedule !== doctorSchedule) {
-                        const updated = await handleUpdateDoctor(selectedDoctor, doctorPassword, doctorSchedule);
-                        if(updated) {
-                            Alert.alert("Doctor Updated Successfully");
-                            reset();
+                    if (doctorPassword.trim() || selectedDoctor.schedule !== doctorSchedule || selectedDoctor.name !== doctorName.trim()) {
+                        if(doctorName.trim() !== selectedDoctor.name && 
+                            doctorsList
+                                .filter(doctor => doctor.name.toLowerCase() === doctorName.trim().toLowerCase())
+                                .filter(doctor => doctor._id !== selectedDoctor._id).length > 0) {
+                            Alert.alert("Doctor with this name already exists");
                         }
                         else {
-                            Alert.alert("There was some error updating the doctor. Please check logs.")
+                            const updated = await handleUpdateDoctor(selectedDoctor, doctorName, doctorPassword, doctorSchedule);
+                            if(updated) {
+                                Alert.alert("Doctor Updated Successfully");
+                                reset();
+                            }
+                            else {
+                                Alert.alert("There was some error updating the doctor. Please check logs.")
+                            }
                         }
                     }
                     else {
